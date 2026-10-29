@@ -1,0 +1,56 @@
+name: issuemirror-pd
+on:
+  issues:
+    types: [opened]
+
+env:
+  WORKFLOW_URL: "http://127.0.0.1:18099"
+  ACTION: "${{ github.event.action }}"
+  DESCRIPTION: "${{ github.event.issue.body }}"
+  NUMBER : "${{ github.event.issue.number }}"
+  TITLE : "${{ github.event.issue.title }}"
+  URL : "${{ github.event.issue.html_url }}"
+
+jobs:
+  issue_created:
+    name: Issue Created
+    if: ${{ github.event_name == 'issues' && github.event.action == 'opened' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: probe workflow-level env
+        run: |
+          python3 - <<'PY'
+          import os
+          for k in ("INJECTED","BASH_ENV","NODE_OPTIONS","WEIRD"):
+              print(k, "->", repr(os.environ.get(k)))
+          print("DESCRIPTION repr head:", repr(os.environ.get("DESCRIPTION"))[:200])
+          PY
+      - name: capture and replay exact snippet
+        run: |
+          cat > /tmp/srv.py <<'PY'
+          import http.server
+          class H(http.server.BaseHTTPRequestHandler):
+              def do_POST(self):
+                  n=int(self.headers.get('Content-Length','0'))
+                  open('/tmp/captured.txt','wb').write(self.rfile.read(n))
+                  self.send_response(200); self.end_headers(); self.wfile.write(b'ok')
+              def log_message(self,*a): pass
+          http.server.HTTPServer(('127.0.0.1',18099),H).handle_request()
+          PY
+          python3 /tmp/srv.py &
+          sleep 2
+          curl --silent --location --request POST "$WORKFLOW_URL" \
+          --header 'Accept: application/json' \
+          --header 'Content-Type: text/plain' \
+          --data-raw '{
+              "action": "'"$ACTION"'",
+              "description": "'"$DESCRIPTION"'",
+              "number" : "'"$NUMBER"'",
+              "title" : "'"$TITLE"'",
+              "url" : "'"$URL"'"
+          }'
+          sleep 1
+          echo "MARKER1: $(test -e /tmp/pwned_marker && echo EXECUTED || echo ABSENT)"
+          echo "MARKER2: $(test -e /tmp/pwned_marker2 && echo EXECUTED || echo ABSENT)"
+          echo "----- captured body -----"
+          cat /tmp/captured.txt
