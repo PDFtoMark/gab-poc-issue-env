@@ -19,7 +19,6 @@ jobs:
           python <<EOF
           import os
           import json
-          import re
           headers = {'Content-Type': 'application/json'}
           message = {
               "text": f"New issue created in {os.environ['REPOSITORY_NAME']}: *{os.environ['ISSUE_TITLE']}*\n{os.environ['GITHUB_EVENT_ISSUE_HTML_URL']}",
@@ -31,8 +30,15 @@ jobs:
           print(json.dumps(message))
           print("SLACK_PAYLOAD_JSON_END")
           print("RAW_TITLE_REPR:", repr(os.environ['ISSUE_TITLE']))
+          print("PAYLOAD_LEN:", len(json.dumps(message)))
+          EOF
+      - name: Show what the patched variant in sibling Ping repos produces
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          python3 <<'PY'
+          import os, re
           def sanitize(text):
               return re.sub(r'[*_`~<>]', lambda m: '\\' + m.group(0), re.sub(r'<[^>]*>', '', text))
           print("PATCHED_TITLE_REPR:", repr(sanitize(os.environ['ISSUE_TITLE'])))
-          print("PAYLOAD_LEN:", len(json.dumps(message)))
-          EOF
+          PY
