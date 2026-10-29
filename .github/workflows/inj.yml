@@ -1,4 +1,4 @@
-name: inj
+name: inj2
 on:
   issues:
     types: [opened]
@@ -13,10 +13,13 @@ jobs:
           TITLE: ${{ github.event.issue.title }}
           BODY: ${{ github.event.issue.body }}
         run: |
-          echo "==TITLE-BYTES=="
-          printf '%s' "$TITLE" | od -c | head -5
-          echo "==BODY-BYTES=="
-          printf '%s' "$BODY" | od -c | head -12
-          echo "==SUSPECT-ENV=="
-          printenv | grep -E '^(WEIRD|INJECTED|BASH_ENV|NODE_OPTIONS|PYTHONPATH|LD_PRELOAD)=' || echo "no-injected-vars"
-          echo "==END=="
+          python3 - <<'PY'
+          import os
+          for k in ("WEIRD","INJECTED","BASH_ENV","NODE_OPTIONS","PYTHONPATH","LD_PRELOAD","SLACK_WEBHOOK"):
+              print(f"{k} -> {os.environ.get(k)!r}")
+          print("BODY repr head:", repr(os.environ.get("BODY"))[:120])
+          print("TITLE repr:", repr(os.environ.get("TITLE")))
+          PY
+          echo "marker-exists: $(test -e /tmp/pwned_marker && echo YES || echo NO)"
+          echo "title-literal-check:"
+          printf '%s\n' "$TITLE"
