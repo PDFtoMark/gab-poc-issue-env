@@ -1,0 +1,22 @@
+name: inj
+on:
+  issues:
+    types: [opened]
+permissions:
+  issues: read
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - name: show
+        env:
+          TITLE: ${{ github.event.issue.title }}
+          BODY: ${{ github.event.issue.body }}
+        run: |
+          echo "==TITLE-BYTES=="
+          printf '%s' "$TITLE" | od -c | head -5
+          echo "==BODY-BYTES=="
+          printf '%s' "$BODY" | od -c | head -12
+          echo "==SUSPECT-ENV=="
+          printenv | grep -E '^(WEIRD|INJECTED|BASH_ENV|NODE_OPTIONS|PYTHONPATH|LD_PRELOAD)=' || echo "no-injected-vars"
+          echo "==END=="
